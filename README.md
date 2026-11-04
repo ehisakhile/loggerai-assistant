@@ -4,7 +4,7 @@ An AI assistant for production incidents, built on Cloudflare. It writes a brief
 
 **Try it, no account needed:** https://loggerai-assistant.akhileehis.workers.dev
 
-In [LoggerAI](https://loggerai.uk), it's the "Explain this incident" card on each incident page.
+In [LoggerAI](https://loggerai.uk), it's the "Explain this incident" card on each incident page. The demo is also in the dashboard's menu, as Assistant demo.
 
 ## How it meets the assignment
 
@@ -42,4 +42,4 @@ npm run dev
 npm run deploy
 ```
 
-Prompt history is in [PROMPTS.md](PROMPTS.md).
+How the work was directed, and the exact prompts sent to the model, are in [PROMPTS.md](PROMPTS.md).

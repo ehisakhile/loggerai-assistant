@@ -5,69 +5,234 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>LoggerAI Incident Assistant</title>
 <meta name="description" content="Ask an AI assistant about a production incident. Built on Cloudflare Workers AI, Workflows and Durable Objects.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b7350'/%3E%3Cpath d='M17 14a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v29a2 2 0 0 0 2 2h18a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3H21a4 4 0 0 1-4-4z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-:root{--bg:#f7f7f5;--card:#fff;--ink:#1c1c1a;--muted:#66665f;--line:#e4e3de;--brand:#1f5fd0;--me:#e9effb}
-@media (prefers-color-scheme:dark){:root{--bg:#141413;--card:#1e1e1c;--ink:#efeee9;--muted:#a5a49c;--line:#34332f;--brand:#7ea8f5;--me:#26304a}}
+:root{--bg:#f1f5f2;--surface:#fff;--elevated:#f0f4f1;--line:#e1e9e4;--ink:#0a1410;--ink2:#46564e;--muted:#64756c;--brand:#0b7350;--brand-ink:#075c40;--brand-soft:#e3f1ea;--on-brand:#fff;--red:#dc2626;--red-soft:#fdecec;--amber:#b45309;--amber-soft:#fdf3e2;--blue:#2563eb;--blue-soft:#e9effd;--side:#0b2e23;--side-text:#e9f5ef;--side-muted:#93b8a8;--card:0 0 0 1px rgb(11 46 35/.05),0 1px 2px rgb(11 46 35/.05),0 10px 28px -20px rgb(11 46 35/.28)}
+:root[data-theme=dark]{--bg:#0f1614;--surface:#161f1c;--elevated:#1e2925;--line:#2a3732;--ink:#eaf2ee;--ink2:#b0c0b8;--muted:#84978e;--brand:#22b07a;--brand-ink:#5fdcaa;--brand-soft:#12332a;--on-brand:#06281c;--red:#f87171;--red-soft:#3a1b1b;--amber:#fbbf24;--amber-soft:#382a10;--blue:#60a5fa;--blue-soft:#17253d;--card:0 0 0 1px rgb(255 255 255/.045),0 10px 28px -22px rgb(0 0 0/.7)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:720px;margin:0 auto;padding:32px 16px 48px}
-h1{font-size:26px;line-height:1.2;margin:0 0 6px}
-h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
-p{margin:0}
-.lead{color:var(--muted);margin-bottom:20px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
-.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:10px}
-.facts b{display:block;font-size:17px}
-.facts span{font-size:13px;color:var(--muted)}
-.brief{white-space:pre-wrap}
-.status{color:var(--muted)}
-#questions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-#questions button{background:none;border:1px solid var(--line);color:var(--brand);border-radius:8px;padding:6px 10px;font:inherit;font-size:14px;text-align:left;cursor:pointer}
-.turn{white-space:pre-wrap;padding:10px 12px;border-radius:8px;margin-bottom:8px}
-.turn.user{background:var(--me);margin-left:15%}
-.turn.assistant{border:1px solid var(--line);margin-right:8%}
-form{display:flex;gap:8px;margin-top:8px}
-input{flex:1;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
-form button{padding:10px 16px;border:0;border-radius:8px;background:var(--brand);color:var(--card);font:inherit;font-weight:600;cursor:pointer}
-button:disabled{opacity:.55;cursor:default}
-footer{font-size:14px;color:var(--muted)}
-a{color:var(--brand)}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Figtree,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3,p,ol,ul{margin:0;padding:0}
+ol,ul{list-style:none}
+a{color:var(--brand-ink)}
+button,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{cursor:default;opacity:.55}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+.bar{background:var(--side);color:var(--side-text)}
+.bar div{max-width:1240px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:10px}
+.bar svg{width:28px;height:28px;flex:none}
+.bar strong{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.bar .tag{font-size:12px;font-weight:600;color:var(--side-muted);border:1px solid #1d4737;border-radius:999px;padding:2px 9px}
+.bar a{margin-left:auto;color:var(--side-text);font-size:14px;font-weight:600;text-decoration:none;white-space:nowrap}
+.bar a:hover{text-decoration:underline}
+main{max-width:1240px;margin:0 auto;padding:20px;display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+.card{background:var(--surface);border-radius:16px;box-shadow:var(--card);min-width:0}
+.pad{padding:18px}
+.eyebrow{font-size:12px;font-weight:600;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill.ok{background:var(--brand-soft);color:var(--brand-ink)}
+.pill.warn{background:var(--amber-soft);color:var(--amber)}
+.pill.bad{background:var(--red-soft);color:var(--red)}
+.head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.title{font-size:21px;line-height:1.25;font-weight:700;letter-spacing:-.015em}
+.sub{margin-top:3px;font-size:13px;color:var(--ink2);word-break:break-word}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:14px}
+.facts div{background:var(--elevated);border-radius:12px;padding:10px 12px}
+.facts b{display:block;font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.facts span{display:block;font-size:12px;line-height:1.3;color:var(--muted)}
+.chart{margin-top:14px}
+.chart svg{display:block;width:100%;height:auto}
+.chart text{font:10px "JetBrains Mono",ui-monospace,monospace;fill:var(--muted)}
+.section{font-size:14px;font-weight:600;margin-bottom:10px}
+.timeline li{position:relative;padding:0 0 12px 18px;font-size:14px}
+.timeline li:last-child{padding-bottom:0}
+.timeline li::before{content:"";position:absolute;left:0;top:7px;width:8px;height:8px;border-radius:50%;background:var(--c,var(--muted))}
+.timeline li:not(:last-child)::after{content:"";position:absolute;left:3.5px;top:18px;bottom:-4px;width:1px;background:var(--line)}
+.timeline time{display:block;font-size:12px;color:var(--muted)}
+.finding{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.finding:first-child{border-top:0;padding-top:0}
+.finding:last-child{padding-bottom:0}
+.finding i{flex:none;width:8px;height:8px;border-radius:50%;margin-top:7px;background:var(--c)}
+.finding b{display:block;font-weight:600}
+.finding span{color:var(--ink2);font-size:13px}
+.built{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.built span{font-size:12px;font-weight:500;background:var(--elevated);color:var(--ink2);border-radius:8px;padding:4px 8px}
+.panel{display:flex;flex-direction:column;min-height:560px}
+.panel>header{display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.panel>header strong{font-weight:600;flex:1}
+.ghost{background:none;border:0;padding:6px 8px;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted)}
+.ghost:hover:not(:disabled){background:var(--elevated);color:var(--ink)}
+.feed{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px;min-height:0}
+.steps{display:grid;gap:8px;font-size:14px}
+.steps li{display:flex;align-items:center;gap:9px;color:var(--muted)}
+.steps li.now{color:var(--ink);font-weight:500}
+.steps li.done{color:var(--ink2)}
+.steps small{margin-left:auto;font-size:12px;color:var(--muted);font-weight:400}
+.dot{flex:none;width:18px;height:18px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center}
+.now .dot{border-color:var(--brand);border-right-color:transparent;animation:spin .8s linear infinite}
+.done .dot{border-color:var(--brand);background:var(--brand)}
+.done .dot::after{content:"";width:7px;height:4px;border-left:2px solid var(--on-brand);border-bottom:2px solid var(--on-brand);transform:rotate(-45deg) translate(.5px,-1px)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.brief{background:var(--elevated);border-radius:14px;padding:14px 16px}
+.brief .top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.brief .top strong{font-size:14px;font-weight:600;flex:1}
+.part{padding-top:9px}
+.part:first-of-type{padding-top:0}
+.part h3{font-size:12px;font-weight:600;color:var(--muted)}
+.part p{white-space:pre-wrap;overflow-wrap:anywhere}
+.part.cause h3{color:var(--brand-ink)}
+.note{font-size:14px;color:var(--ink2)}
+.note.error{color:var(--red)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:7px 11px;font-size:13.5px;line-height:1.35;text-align:left;color:var(--ink2);transition:border-color .15s,color .15s}
+.chips button:hover:not(:disabled){border-color:var(--brand);color:var(--ink)}
+.turn{max-width:88%;white-space:pre-wrap;overflow-wrap:anywhere;padding:9px 13px;border-radius:14px}
+.turn.user{align-self:flex-end;background:var(--brand);color:var(--on-brand);border-bottom-right-radius:4px}
+.turn.assistant{align-self:flex-start;background:var(--elevated);border-bottom-left-radius:4px}
+.turn.failed{background:var(--red-soft);color:var(--red)}
+.typing{display:inline-flex;gap:4px;padding:4px 0}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:beat 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}
+.typing i:nth-child(3){animation-delay:.3s}
+@keyframes beat{0%,60%,100%{opacity:.3}30%{opacity:1}}
+form{display:flex;align-items:flex-end;gap:8px;padding:12px 14px;border-top:1px solid var(--line)}
+textarea{flex:1;min-width:0;min-height:44px;max-height:132px;resize:none;border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:10px 12px;line-height:1.4}
+textarea:focus{outline:0;border-color:var(--brand);box-shadow:0 0 0 2px color-mix(in srgb,var(--brand) 22%,transparent)}
+textarea::placeholder{color:var(--muted)}
+form button{height:44px;padding:0 16px;border:0;border-radius:12px;background:var(--brand);color:var(--on-brand);font-weight:600}
+form button:hover:not(:disabled){filter:brightness(1.08)}
+.fine{padding:0 14px 12px;font-size:12px;color:var(--muted)}
+[hidden]{display:none!important}
+@media (min-width:980px){
+  main{grid-template-columns:minmax(0,5fr) minmax(0,7fr);align-items:start}
+  .panel{grid-column:2;grid-row:1/span 3;position:sticky;top:20px;height:calc(100dvh - 40px);min-height:520px}
+  .facts{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .facts b{font-size:16px}
+}
+.embed main{padding:0;max-width:none}
+.embed .panel{top:0;height:calc(100dvh - 2px)}
+.embed .card{box-shadow:0 0 0 1px var(--line)}
+@media (max-width:979px){.embed .panel{height:auto}.embed main{padding:1px}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:0s!important;transition:none!important}.now .dot{border-right-color:var(--brand)}.typing i{opacity:.7}}
 </style>
+<script>
+// Set before the page draws, so it doesn't flash. The dashboard passes its own theme.
+(() => {
+  const q = new URLSearchParams(location.search), t = q.get("theme")
+  document.documentElement.dataset.theme = t === "light" || t === "dark" ? t : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+  if (q.has("embed")) document.documentElement.className = "embed"
+})()
+</script>
 </head>
 <body>
+<header class="bar" id="bar">
+  <div>
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#4fd6a2"/><path d="M17 14a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v29a2 2 0 0 0 2 2h18a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3H21a4 4 0 0 1-4-4z" fill="#0b2e23"/><rect x="30" y="25" width="17" height="17" rx="4" fill="#0b2e23"/><circle cx="38.5" cy="33.5" r="4.6" fill="#4fd6a2"/></svg>
+    <strong>Incident Assistant</strong>
+    <span class="tag">Demo</span>
+    <a href="https://loggerai.uk">LoggerAI →</a>
+  </div>
+</header>
 <main>
-  <h1>LoggerAI Incident Assistant</h1>
-  <p class="lead">A sample production incident. Read the AI brief, then ask about it. This is made-up data, so try anything.</p>
-  <section class="card">
-    <h2>Incident</h2>
-    <p><strong>Checkout latency</strong> on POST /api/checkout</p>
+  <section class="card pad" aria-labelledby="incident">
+    <div class="head">
+      <div>
+        <p class="eyebrow">Sample incident, made-up data</p>
+        <h1 class="title" id="incident">Checkout latency</h1>
+        <p class="sub mono">POST /api/checkout</p>
+      </div>
+      <span class="pill ok">Resolved</span>
+    </div>
     <div class="facts">
       <div><b>5.0 s</b><span>p95, alert at 1.5 s</span></div>
       <div><b>35 min</b><span>Duration</span></div>
       <div><b>61</b><span>Users affected</span></div>
-      <div><b>v2.14.0</b><span>Release before alert</span></div>
+      <div><b>398</b><span>Timeouts</span></div>
+    </div>
+    <figure class="chart" style="margin-left:0;margin-right:0;margin-bottom:0" aria-label="p95 latency rose from about 300 milliseconds to 5 seconds at 14:06 and recovered at 14:41">
+      <svg viewBox="0 0 480 120" role="img">
+        <line x1="0" x2="480" y1="74" y2="74" stroke="var(--amber)" stroke-dasharray="4 4"/>
+        <text x="476" y="69" text-anchor="end">alert 1.5 s</text>
+        <path d="M0 98 L90 97 L108 16 L330 14 L350 96 L480 97 L480 104 L0 104Z" fill="var(--red)" opacity=".12"/>
+        <path d="M0 98 L90 97 L108 16 L330 14 L350 96 L480 97" fill="none" stroke="var(--red)" stroke-width="2" stroke-linejoin="round"/>
+        <text x="0" y="118">13:55</text><text x="96" y="118">14:06</text><text x="336" y="118">14:41</text><text x="480" y="118" text-anchor="end">14:55</text>
+      </svg>
+    </figure>
+  </section>
+
+  <section class="card panel" aria-label="Assistant">
+    <header>
+      <strong>Ask about this incident</strong>
+      <button class="ghost" id="restart" type="button">Start over</button>
+    </header>
+    <div class="feed" id="feed">
+      <ol class="steps" id="steps" aria-live="polite">
+        <li class="done" data-step="evidence"><span class="dot"></span>Evidence loaded<small>Durable Object</small></li>
+        <li class="now" data-step="brief"><span class="dot"></span>Writing the brief<small>Workflow, Workers AI</small></li>
+        <li data-step="questions"><span class="dot"></span>Suggesting questions<small>Workflow, Workers AI</small></li>
+      </ol>
+      <article class="brief" id="brief" hidden>
+        <div class="top">
+          <strong>AI brief</strong>
+          <span class="pill" id="confidence" hidden></span>
+          <button class="ghost" id="copy" type="button">Copy</button>
+        </div>
+        <div id="parts"></div>
+      </article>
+      <p class="note" id="note" hidden aria-live="polite"></p>
+      <button class="ghost" id="retry" type="button" hidden style="align-self:flex-start">Try again</button>
+      <div class="chips" id="questions" aria-label="Suggested questions"></div>
+      <div id="turns" style="display:flex;flex-direction:column;gap:12px" aria-live="polite"></div>
+    </div>
+    <form id="form">
+      <textarea id="input" rows="1" maxlength="1000" placeholder="What should I check first?" aria-label="Your question"></textarea>
+      <button id="send" type="submit">Ask</button>
+    </form>
+    <p class="fine">Answers use only this incident's evidence, and can be wrong. Check them before you act.</p>
+  </section>
+
+  <section class="card pad" aria-labelledby="timeline">
+    <h2 class="section" id="timeline">What happened when</h2>
+    <ol class="timeline">
+      <li style="--c:var(--blue)"><time>14:02</time>Release v2.14.0 moved the payment client to a new connection pool</li>
+      <li style="--c:var(--red)"><time>14:06</time>Alert fired: p95 passed 1.5 s</li>
+      <li style="--c:var(--brand)"><time>14:41</time>Back to normal</li>
+    </ol>
+  </section>
+
+  <section class="card pad" aria-labelledby="evidence">
+    <h2 class="section" id="evidence">What LoggerAI found</h2>
+    <ul>
+      <li class="finding" style="--c:var(--red)"><i></i><p><b>Payment provider calls hit the 5.0 s timeout</b><span>p95 for api.payments.example went from 240 ms to 5.0 s.</span></p></li>
+      <li class="finding" style="--c:var(--amber)"><i></i><p><b>The connection pool ran out</b><span>All 10 connections in use, logged 276 times.</span></p></li>
+      <li class="finding" style="--c:var(--muted)"><i></i><p><b>Servers stayed healthy</b><span>CPU 38%, memory 61%, database and Redis fine.</span></p></li>
+    </ul>
+    <div id="built" style="margin-top:14px">
+      <p class="eyebrow">Built on Cloudflare</p>
+      <div class="built"><span>Workers</span><span>Workers AI, Llama 3.3</span><span>Workflows</span><span>Durable Objects</span></div>
     </div>
   </section>
-  <section class="card">
-    <h2>AI brief</h2>
-    <p id="brief" class="status" aria-live="polite">Writing the brief...</p>
-    <div id="questions"></div>
-  </section>
-  <section class="card">
-    <h2>Ask about this incident</h2>
-    <div id="turns" aria-live="polite"></div>
-    <form id="form">
-      <input id="input" maxlength="1000" autocomplete="off" placeholder="What should I check first?" aria-label="Your question">
-      <button id="send">Ask</button>
-    </form>
-  </section>
-  <footer>Runs on Llama 3.3 on Workers AI, with Cloudflare Workflows writing the brief and a Durable Object remembering the conversation. Part of <a href="https://loggerai.uk">LoggerAI</a>.</footer>
 </main>
 <script>
 const $ = (id) => document.getElementById(id)
+const embed = new URLSearchParams(location.search).has("embed")
+$("bar").hidden = embed
+
+function newId() {
+  const id = crypto.randomUUID()
+  try { sessionStorage.setItem("demo", id) } catch {}
+  return id
+}
 let id
 try { id = sessionStorage.getItem("demo") } catch {}
-if (!id) { id = crypto.randomUUID(); try { sessionStorage.setItem("demo", id) } catch {} }
+id = id || newId()
+
+let busy = false, polling = 0, briefText = ""
 
 async function call(path, options) {
   const res = await fetch(path, options)
@@ -77,58 +242,216 @@ async function call(path, options) {
 }
 const post = (path, body) => call(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, ...body }) })
 
-function turn(role, text) {
-  const el = document.createElement("div")
-  el.className = "turn " + role
-  el.textContent = text
-  $("turns").append(el)
-  return el
+// Model output only ever reaches the page as text, so it can't add markup.
+function el(tag, className, text) {
+  const e = document.createElement(tag)
+  if (className) e.className = className
+  if (text !== undefined) e.textContent = text
+  return e
 }
 
-function show(view) {
-  if (view.brief) { $("brief").textContent = view.brief; $("brief").className = "brief" }
-  if (view.status === "failed") { $("brief").textContent = "The brief couldn't be written. Reload to try again."; $("brief").className = "status" }
-  if (view.questions.length && !$("questions").children.length) {
-    for (const q of view.questions) {
-      const b = document.createElement("button")
-      b.type = "button"; b.textContent = q
-      b.onclick = () => ask(q)
-      $("questions").append(b)
+function nearBottom() {
+  const f = $("feed")
+  requestAnimationFrame(() => { f.scrollTop = f.scrollHeight })
+}
+
+function setStep(step, state) {
+  document.querySelector(`[data-step=${step}]`).className = state
+}
+
+const LABELS = ["What happened", "Likely cause", "Check next"]
+
+/** The brief's three labelled parts, or null when the model wrote it some other way. */
+function parts(text) {
+  const clean = text.replace(/\*\*/g, "")
+  const at = LABELS.map((l) => clean.toLowerCase().indexOf(l.toLowerCase()))
+  if (at.some((i) => i < 0) || at[0] > at[1] || at[1] > at[2]) return null
+  return LABELS.map((label, i) => ({
+    label,
+    body: clean.slice(at[i] + label.length, at[i + 1] ?? clean.length).replace(/^[\s:.\-–]+/, "").trim(),
+  }))
+}
+
+function showBrief(text) {
+  if (!text || text === briefText) return
+  briefText = text
+  const box = $("parts")
+  box.replaceChildren()
+  const found = parts(text)
+  if (found) {
+    for (const p of found) {
+      const part = el("section", p.label === "Likely cause" ? "part cause" : "part")
+      part.append(el("h3", "", p.label), el("p", "", p.body))
+      box.append(part)
     }
+  } else {
+    const part = el("section", "part")
+    part.append(el("p", "", text))
+    box.append(part)
+  }
+  const level = /\b(low|medium|high)\b[^.\n]{0,24}confidence|confidence[^.\n]{0,40}\b(low|medium|high)\b/i.exec(text)
+  const word = level && (level[1] || level[2]).toLowerCase()
+  const pill = $("confidence")
+  pill.hidden = !word
+  if (word) {
+    pill.textContent = `${word[0].toUpperCase()}${word.slice(1)} confidence`
+    pill.className = `pill ${word === "high" ? "ok" : word === "medium" ? "warn" : "bad"}`
+  }
+  $("brief").hidden = false
+}
+
+function showQuestions(list) {
+  if (!list.length || $("questions").children.length) return
+  for (const q of list) {
+    const b = el("button", "", q)
+    b.type = "button"
+    b.onclick = () => ask(q)
+    $("questions").append(b)
   }
 }
 
-async function watch(tries = 40) {
-  const view = await call("/api/demo/session?id=" + id)
-  show(view)
-  if (view.status === "pending" && tries > 0) setTimeout(() => watch(tries - 1).catch(fail), 2500)
+function problem(text, canRetry) {
+  $("note").textContent = text
+  $("note").className = "note error"
+  $("note").hidden = false
+  $("retry").hidden = !canRetry
 }
 
-function fail(e) { $("brief").textContent = e.message; $("brief").className = "status" }
+function clearProblem() {
+  $("note").hidden = true
+  $("retry").hidden = true
+}
+
+function show(view) {
+  showBrief(view.brief)
+  showQuestions(view.questions)
+  if (view.status === "ready") {
+    $("steps").hidden = true
+  } else if (view.status === "failed") {
+    $("steps").hidden = true
+    problem("The brief couldn't be written. You can still ask questions.", true)
+  } else {
+    setStep("brief", view.brief ? "done" : "now")
+    setStep("questions", view.brief ? "now" : "")
+  }
+}
+
+async function watch(run, tries = 40) {
+  if (run !== polling) return
+  const view = await call("/api/demo/session?id=" + id)
+  if (run !== polling) return
+  show(view)
+  if (view.status !== "pending") return
+  if (tries <= 0) {
+    $("steps").hidden = true
+    return problem("The brief is taking too long.", true)
+  }
+  setTimeout(() => watch(run, tries - 1).catch(failed), 2500)
+}
+
+function failed(e) {
+  $("steps").hidden = true
+  problem(e.message, true)
+}
+
+function turn(role, text) {
+  const t = el("div", "turn " + role, text)
+  $("turns").append(t)
+  nearBottom()
+  return t
+}
+
+function setBusy(on) {
+  busy = on
+  $("send").disabled = on
+  $("restart").disabled = on
+  for (const b of $("questions").children) b.disabled = on
+}
 
 async function ask(text) {
-  if ($("send").disabled) return
-  $("send").disabled = true
+  if (busy) return
+  setBusy(true)
   turn("user", text)
-  const wait = turn("assistant", "Thinking...")
-  try { wait.textContent = (await post("/api/demo/chat", { message: text })).reply }
-  catch (e) { wait.textContent = e.message }
-  $("send").disabled = false
+  const wait = turn("assistant")
+  const dots = el("span", "typing")
+  dots.setAttribute("aria-label", "Thinking")
+  dots.append(el("i"), el("i"), el("i"))
+  wait.append(dots)
+  try {
+    wait.textContent = (await post("/api/demo/chat", { message: text })).reply
+  } catch (e) {
+    wait.textContent = e.message
+    wait.classList.add("failed")
+  }
+  setBusy(false)
+  nearBottom()
 }
 
+function grow() {
+  const t = $("input")
+  t.style.height = "auto"
+  t.style.height = t.scrollHeight + 2 + "px"
+}
+
+$("input").oninput = grow
+$("input").onkeydown = (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+    e.preventDefault()
+    $("form").requestSubmit()
+  }
+}
 $("form").onsubmit = (e) => {
   e.preventDefault()
   const text = $("input").value.trim()
-  if (!text) return
+  if (!text || busy) return
   $("input").value = ""
+  grow()
   ask(text)
 }
 
-post("/api/demo/session", {}).then((view) => {
-  view.messages.forEach((m) => turn(m.role, m.content))
-  show(view)
-  if (view.status === "pending") return watch()
-}).catch(fail)
+$("copy").onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(briefText)
+    $("copy").textContent = "Copied"
+  } catch {
+    $("copy").textContent = "Couldn't copy"
+  }
+  setTimeout(() => { $("copy").textContent = "Copy" }, 1500)
+}
+
+function start() {
+  const run = ++polling
+  clearProblem()
+  post("/api/demo/session", {}).then((view) => {
+    if (run !== polling) return
+    $("turns").replaceChildren()
+    view.messages.forEach((m) => turn(m.role, m.content))
+    show(view)
+    if (view.status === "pending") return watch(run)
+  }).catch(failed)
+}
+
+$("retry").onclick = () => {
+  $("steps").hidden = false
+  setStep("brief", "now")
+  setStep("questions", "")
+  start()
+}
+
+$("restart").onclick = () => {
+  id = newId()
+  briefText = ""
+  $("brief").hidden = true
+  $("parts").replaceChildren()
+  $("questions").replaceChildren()
+  $("turns").replaceChildren()
+  $("steps").hidden = false
+  setStep("brief", "now")
+  setStep("questions", "")
+  start()
+}
+
+start()
 </script>
 </body>
 </html>
