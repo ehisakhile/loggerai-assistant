@@ -2,6 +2,16 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { buildEvidence, mask } from "../src/evidence.ts"
 import { parseQuestions } from "../src/llm.ts"
+import { SAMPLES } from "../src/sample.ts"
+
+test("every sample gives the model its evidence, and not the page's card", () => {
+  for (const [key, sample] of Object.entries(SAMPLES)) {
+    const out = buildEvidence(sample)
+    assert.ok(out.includes(sample.name), key)
+    assert.ok(!out.includes("timeline") && !out.includes('"card"'), key)
+  }
+  assert.ok(buildEvidence(SAMPLES["client-secret"]).includes("PaymentStep.tsx:118"))
+})
 
 test("secrets and emails are masked", () => {
   const out = mask("user a.b@example.com sent Bearer abc.def and sk_live_abc123")

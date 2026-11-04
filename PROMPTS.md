@@ -16,6 +16,8 @@ These are summaries of what I asked for, not word-for-word quotes.
 
 **4. Make the demo easy to try.** Improve the demo's design, and add it to the LoggerAI dashboard's menu.
 
+**5. Let people test it on errors.** Add sample errors to the demo, so visitors can try the assistant on more than one problem.
+
 ## What came out of it
 
 - A separate Worker, so the production API needed no changes.

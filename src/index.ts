@@ -1,5 +1,5 @@
 import { buildEvidence, mask } from "./evidence.ts"
-import { SAMPLE_INCIDENT } from "./sample.ts"
+import { SAMPLES } from "./sample.ts"
 import type { Conversation } from "./conversation.ts"
 
 export { Conversation } from "./conversation.ts"
@@ -114,14 +114,18 @@ async function live(env: Env, req: Request, url: URL, body: Record<string, unkno
 }
 
 async function demo(env: Env, req: Request, url: URL, body: Record<string, unknown>) {
+  if (url.pathname === "/api/demo/samples") return json(Object.entries(SAMPLES).map(([key, s]) => ({ key, ...(s.card as object) })))
   const id = String(body.id ?? url.searchParams.get("id") ?? "")
   if (!DEMO_ID.test(id)) throw new Refused(400, "Unknown demo")
-  const name = `demo:${id}`
+  const key = String(body.sample ?? url.searchParams.get("sample") ?? "checkout")
+  if (!Object.hasOwn(SAMPLES, key)) throw new Refused(400, "Unknown sample")
+  const sample = SAMPLES[key]
+  const name = key === "checkout" ? `demo:${id}` : `demo:${id}:${key}`
   if (req.method === "GET") return json(await stubFor(env, name).stub.view())
   await limit(env, `ip:${req.headers.get("cf-connecting-ip") ?? "unknown"}`)
-  if (url.pathname === "/api/demo/session") return json(await open(env, name, buildEvidence(SAMPLE_INCIDENT), SAMPLE_INCIDENT.name))
+  if (url.pathname === "/api/demo/session") return json(await open(env, name, buildEvidence(sample), sample.name))
   const text = message(body)
-  await open(env, name, buildEvidence(SAMPLE_INCIDENT), SAMPLE_INCIDENT.name)
+  await open(env, name, buildEvidence(sample), sample.name)
   return json({ reply: await stubFor(env, name).stub.chat(text) })
 }
 

@@ -23,6 +23,12 @@ button{cursor:pointer}
 button:disabled{cursor:default;opacity:.55}
 :focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .mono{font-family:"JetBrains Mono",ui-monospace,monospace}
+.scenes{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px}
+.scenes button{flex:none;display:flex;flex-direction:column;align-items:flex-start;background:var(--surface);border:0;box-shadow:var(--card);border-radius:12px;padding:7px 12px;text-align:left}
+.scenes small{font-size:11.5px;color:var(--muted)}
+.scenes b{font-size:13.5px;font-weight:600}
+.scenes button[aria-pressed=true]{background:var(--brand-soft);box-shadow:0 0 0 1px var(--brand)}
+.scenes button[aria-pressed=true] b{color:var(--brand-ink)}
 .bar{background:var(--side);color:var(--side-text)}
 .bar div{max-width:1240px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:10px}
 .bar svg{width:28px;height:28px;flex:none}
@@ -109,13 +115,14 @@ form button:hover:not(:disabled){filter:brightness(1.08)}
 .fine{padding:0 14px 12px;font-size:12px;color:var(--muted)}
 [hidden]{display:none!important}
 @media (min-width:980px){
-  main{grid-template-columns:minmax(0,5fr) minmax(0,7fr);align-items:start}
-  .panel{grid-column:2;grid-row:1/span 3;position:sticky;top:20px;height:calc(100dvh - 40px);min-height:520px}
+  main{grid-template-columns:minmax(0,5fr) minmax(0,7fr);grid-template-rows:auto auto auto 1fr;align-items:start}
+  .scenes{grid-column:1/-1}
+  .panel{grid-column:2;grid-row:2/span 3;position:sticky;top:20px;height:calc(100dvh - 40px);min-height:520px}
   .facts{grid-template-columns:repeat(4,minmax(0,1fr))}
   .facts b{font-size:16px}
 }
 .embed main{padding:0;max-width:none}
-.embed .panel{top:0;height:calc(100dvh - 2px)}
+.embed .panel{top:0;height:calc(100dvh - 74px)}
 .embed .card{box-shadow:0 0 0 1px var(--line)}
 @media (max-width:979px){.embed .panel{height:auto}.embed main{padding:1px}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:0s!important;transition:none!important}.now .dot{border-right-color:var(--brand)}.typing i{opacity:.7}}
@@ -139,22 +146,18 @@ form button:hover:not(:disabled){filter:brightness(1.08)}
   </div>
 </header>
 <main>
+  <nav class="scenes" id="scenes" aria-label="Choose a sample"></nav>
   <section class="card pad" aria-labelledby="incident">
     <div class="head">
       <div>
-        <p class="eyebrow">Sample incident, made-up data</p>
-        <h1 class="title" id="incident">Checkout latency</h1>
-        <p class="sub mono">POST /api/checkout</p>
+        <p class="eyebrow" id="kind">Sample, made-up data</p>
+        <h1 class="title" id="incident">Loading...</h1>
+        <p class="sub mono" id="scope"></p>
       </div>
-      <span class="pill ok">Resolved</span>
+      <span class="pill ok" id="state" hidden></span>
     </div>
-    <div class="facts">
-      <div><b>5.0 s</b><span>p95, alert at 1.5 s</span></div>
-      <div><b>35 min</b><span>Duration</span></div>
-      <div><b>61</b><span>Users affected</span></div>
-      <div><b>398</b><span>Timeouts</span></div>
-    </div>
-    <figure class="chart" style="margin-left:0;margin-right:0;margin-bottom:0" aria-label="p95 latency rose from about 300 milliseconds to 5 seconds at 14:06 and recovered at 14:41">
+    <div class="facts" id="facts"></div>
+    <figure class="chart" id="chart" hidden style="margin-left:0;margin-right:0;margin-bottom:0" aria-label="p95 latency rose from about 300 milliseconds to 5 seconds at 14:06 and recovered at 14:41">
       <svg viewBox="0 0 480 120" role="img">
         <line x1="0" x2="480" y1="74" y2="74" stroke="var(--amber)" stroke-dasharray="4 4"/>
         <text x="476" y="69" text-anchor="end">alert 1.5 s</text>
@@ -167,7 +170,7 @@ form button:hover:not(:disabled){filter:brightness(1.08)}
 
   <section class="card panel" aria-label="Assistant">
     <header>
-      <strong>Ask about this incident</strong>
+      <strong id="heading">Ask about this</strong>
       <button class="ghost" id="restart" type="button">Start over</button>
     </header>
     <div class="feed" id="feed">
@@ -198,19 +201,13 @@ form button:hover:not(:disabled){filter:brightness(1.08)}
 
   <section class="card pad" aria-labelledby="timeline">
     <h2 class="section" id="timeline">What happened when</h2>
-    <ol class="timeline">
-      <li style="--c:var(--blue)"><time>14:02</time>Release v2.14.0 moved the payment client to a new connection pool</li>
-      <li style="--c:var(--red)"><time>14:06</time>Alert fired: p95 passed 1.5 s</li>
-      <li style="--c:var(--brand)"><time>14:41</time>Back to normal</li>
+    <ol class="timeline" id="when">
     </ol>
   </section>
 
   <section class="card pad" aria-labelledby="evidence">
     <h2 class="section" id="evidence">What LoggerAI found</h2>
-    <ul>
-      <li class="finding" style="--c:var(--red)"><i></i><p><b>Payment provider calls hit the 5.0 s timeout</b><span>p95 for api.payments.example went from 240 ms to 5.0 s.</span></p></li>
-      <li class="finding" style="--c:var(--amber)"><i></i><p><b>The connection pool ran out</b><span>All 10 connections in use, logged 276 times.</span></p></li>
-      <li class="finding" style="--c:var(--muted)"><i></i><p><b>Servers stayed healthy</b><span>CPU 38%, memory 61%, database and Redis fine.</span></p></li>
+    <ul id="found">
     </ul>
     <div id="built" style="margin-top:14px">
       <p class="eyebrow">Built on Cloudflare</p>
@@ -232,7 +229,8 @@ let id
 try { id = sessionStorage.getItem("demo") } catch {}
 id = id || newId()
 
-let busy = false, polling = 0, briefText = ""
+let busy = false, polling = 0, briefText = "", samples = []
+let sample = new URLSearchParams(location.search).get("sample") || "checkout"
 
 async function call(path, options) {
   const res = await fetch(path, options)
@@ -240,7 +238,7 @@ async function call(path, options) {
   if (!res.ok) throw new Error(data.error || "Something went wrong. Try again.")
   return data
 }
-const post = (path, body) => call(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, ...body }) })
+const post = (path, body) => call(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, sample, ...body }) })
 
 // Model output only ever reaches the page as text, so it can't add markup.
 function el(tag, className, text) {
@@ -338,7 +336,7 @@ function show(view) {
 
 async function watch(run, tries = 40) {
   if (run !== polling) return
-  const view = await call("/api/demo/session?id=" + id)
+  const view = await call(`/api/demo/session?id=${id}&sample=${sample}`)
   if (run !== polling) return
   show(view)
   if (view.status !== "pending") return
@@ -431,15 +429,7 @@ function start() {
   }).catch(failed)
 }
 
-$("retry").onclick = () => {
-  $("steps").hidden = false
-  setStep("brief", "now")
-  setStep("questions", "")
-  start()
-}
-
-$("restart").onclick = () => {
-  id = newId()
+function reset() {
   briefText = ""
   $("brief").hidden = true
   $("parts").replaceChildren()
@@ -451,7 +441,65 @@ $("restart").onclick = () => {
   start()
 }
 
-start()
+$("retry").onclick = reset
+
+$("restart").onclick = () => {
+  id = newId()
+  reset()
+}
+
+function showCard(s) {
+  $("kind").textContent = `Sample ${s.kind.toLowerCase()}, made-up data`
+  $("incident").textContent = s.title
+  $("scope").textContent = s.scope
+  $("state").textContent = s.state
+  $("state").className = `pill ${s.state === "Resolved" ? "ok" : "bad"}`
+  $("state").hidden = false
+  $("heading").textContent = `Ask about this ${s.kind.toLowerCase()}`
+  $("chart").hidden = !s.chart
+  $("facts").replaceChildren(...s.facts.map(([value, label]) => {
+    const d = el("div")
+    d.append(el("b", "", value), el("span", "", label))
+    return d
+  }))
+  $("when").replaceChildren(...s.timeline.map(([at, text, color]) => {
+    const li = el("li")
+    li.style.setProperty("--c", `var(--${color})`)
+    li.append(el("time", "", at), text)
+    return li
+  }))
+  $("found").replaceChildren(...s.findings.map(([color, title, detail]) => {
+    const li = el("li", "finding")
+    li.style.setProperty("--c", `var(--${color})`)
+    const p = el("p")
+    p.append(el("b", "", title), el("span", "", detail))
+    li.append(el("i"), p)
+    return li
+  }))
+  for (const b of $("scenes").children) b.setAttribute("aria-pressed", b.dataset.key === s.key)
+}
+
+function choose(key) {
+  if (busy || key === sample) return
+  sample = key
+  showCard(samples.find((s) => s.key === key))
+  reset()
+}
+
+call("/api/demo/samples").then((list) => {
+  samples = list
+  if (!list.some((s) => s.key === sample)) sample = "checkout"
+  $("scenes").replaceChildren(...list.map((s) => {
+    const b = el("button")
+    b.type = "button"
+    b.dataset.key = s.key
+    b.append(el("small", "", s.kind), el("b", "", s.title))
+    b.onclick = () => choose(s.key)
+    return b
+  }))
+  showCard(list.find((s) => s.key === sample))
+  start()
+}).catch(failed)
 </script>
 </body>
 </html>

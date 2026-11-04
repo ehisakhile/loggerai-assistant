@@ -4,7 +4,7 @@ An AI assistant for production incidents, built on Cloudflare. It writes a brief
 
 **Try it, no account needed:** https://loggerai-assistant.akhileehis.workers.dev
 
-In [LoggerAI](https://loggerai.uk), it's the "Explain this incident" card on each incident page. The demo is also in the dashboard's menu, as Assistant demo.
+In [LoggerAI](https://loggerai.uk), it's the "Explain this incident" card on each incident page. The demo is also in the dashboard's menu, as Assistant demo, and each error in LoggerAI's demo project has an "Explain this error" button. The samples are in `src/sample.ts`.
 
 ## How it meets the assignment
 
