@@ -28,7 +28,8 @@ export class BriefWorkflow extends WorkflowEntrypoint<Env, { conversation: strin
           role: "user",
           content: "Suggest three short questions an on-call engineer should ask about this incident that the evidence can answer. One per line, each ending in a question mark, nothing else.",
         }], 120)
-        await stub.finish(parseQuestions(text).length ? parseQuestions(text) : FALLBACK)
+        const questions = parseQuestions(text)
+        await stub.finish(questions.length ? questions : FALLBACK)
       })
     } catch (e) {
       await step.do("mark as failed", async () => {

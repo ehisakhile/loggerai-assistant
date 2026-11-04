@@ -19,8 +19,12 @@ export async function ask(ai: Ai, messages: Turn[], maxTokens = 500): Promise<st
   return text
 }
 
-/** Questions from the model's reply, whether it wrote one per line or ran them together. */
+/** Questions from the model's reply. It sometimes runs them together or drops the question marks. */
 export function parseQuestions(text: string): string[] {
-  const found = text.match(/[^?\n]+\?/g) ?? []
-  return found.map((q) => q.replace(/^[\s"'*•-]*(?:\d+[.)]\s*)?[\s"'*]*/, "").trim()).filter((q) => q.length > 8).slice(0, 3)
+  const lines = text.split("\n").flatMap((l) => l.match(/[^?]+\??/g) ?? [])
+  return lines
+    .map((q) => q.replace(/^[\s"'*•-]*(?:\d+[.)]\s*)?[\s"'*]*/, "").replace(/["'*\s]+$/, ""))
+    .filter((q) => q.length > 8 && !q.endsWith(":"))
+    .map((q) => (q.endsWith("?") ? q : `${q}?`))
+    .slice(0, 3)
 }

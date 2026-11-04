@@ -29,3 +29,7 @@ test("questions lose their bullets and non-questions are dropped", () => {
 test("questions run together on one line are split", () => {
   assert.equal(parseQuestions('"What changed first? Which route was slowest? Did users notice?"').length, 3)
 })
+
+test("questions without question marks are kept, and intro lines dropped", () => {
+  assert.deepEqual(parseQuestions("Here are three:\nWhat was the duration \nWhich release shipped"), ["What was the duration?", "Which release shipped?"])
+})
