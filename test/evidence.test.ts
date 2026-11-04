@@ -1,0 +1,31 @@
+import test from "node:test"
+import assert from "node:assert/strict"
+import { buildEvidence, mask } from "../src/evidence.ts"
+import { parseQuestions } from "../src/llm.ts"
+
+test("secrets and emails are masked", () => {
+  const out = mask("user a.b@example.com sent Bearer abc.def and sk_live_abc123")
+  assert.ok(!out.includes("example.com") && !out.includes("abc.def") && !out.includes("sk_live_abc123"))
+})
+
+test("request samples and unknown fields stay out", () => {
+  const out = buildEvidence({ name: "x", samples: [{ user: "secret-user" }], new_field: "secret-new" })
+  assert.ok(!out.includes("secret-user") && !out.includes("secret-new"))
+})
+
+test("nested values are masked", () => {
+  assert.ok(!buildEvidence({ logs: [{ message: "failed for me@example.com" }] }).includes("example.com"))
+})
+
+test("evidence stays within the limit however large the incident is", () => {
+  const big = Array.from({ length: 200 }, () => ({ message: "x".repeat(2000) }))
+  assert.ok(buildEvidence({ name: "x", logs: big, errors: big, findings: big, endpoints: big }).length <= 12000)
+})
+
+test("questions lose their bullets and non-questions are dropped", () => {
+  assert.deepEqual(parseQuestions("1. Why was it slow?\n- What changed then?\n* Who was hit here?\n4) One more thing?"), ["Why was it slow?", "What changed then?", "Who was hit here?"])
+})
+
+test("questions run together on one line are split", () => {
+  assert.equal(parseQuestions('"What changed first? Which route was slowest? Did users notice?"').length, 3)
+})

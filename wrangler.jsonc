@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "loggerai-assistant",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "observability": { "enabled": true },
+  "assets": { "directory": "./public" },
+  "ai": { "binding": "AI" },
+  "durable_objects": { "bindings": [{ "name": "CONVERSATION", "class_name": "Conversation" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Conversation"] }],
+  "workflows": [{ "name": "loggerai-incident-brief", "binding": "BRIEF", "class_name": "BriefWorkflow" }],
+  "ratelimits": [{ "name": "LIMIT", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }],
+  "vars": {
+    "LOGGERAI_API": "https://loggerapp.ehigiator.com/api/v1",
+    "ALLOWED_ORIGINS": "https://loggerai.uk,https://www.loggerai.uk,https://loggerapp-webapp.vercel.app"
+  }
+}

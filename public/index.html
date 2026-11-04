@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LoggerAI Incident Assistant</title>
+<meta name="description" content="Ask an AI assistant about a production incident. Built on Cloudflare Workers AI, Workflows and Durable Objects.">
+<style>
+:root{--bg:#f7f7f5;--card:#fff;--ink:#1c1c1a;--muted:#66665f;--line:#e4e3de;--brand:#1f5fd0;--me:#e9effb}
+@media (prefers-color-scheme:dark){:root{--bg:#141413;--card:#1e1e1c;--ink:#efeee9;--muted:#a5a49c;--line:#34332f;--brand:#7ea8f5;--me:#26304a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:720px;margin:0 auto;padding:32px 16px 48px}
+h1{font-size:26px;line-height:1.2;margin:0 0 6px}
+h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+p{margin:0}
+.lead{color:var(--muted);margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:10px}
+.facts b{display:block;font-size:17px}
+.facts span{font-size:13px;color:var(--muted)}
+.brief{white-space:pre-wrap}
+.status{color:var(--muted)}
+#questions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#questions button{background:none;border:1px solid var(--line);color:var(--brand);border-radius:8px;padding:6px 10px;font:inherit;font-size:14px;text-align:left;cursor:pointer}
+.turn{white-space:pre-wrap;padding:10px 12px;border-radius:8px;margin-bottom:8px}
+.turn.user{background:var(--me);margin-left:15%}
+.turn.assistant{border:1px solid var(--line);margin-right:8%}
+form{display:flex;gap:8px;margin-top:8px}
+input{flex:1;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+form button{padding:10px 16px;border:0;border-radius:8px;background:var(--brand);color:var(--card);font:inherit;font-weight:600;cursor:pointer}
+button:disabled{opacity:.55;cursor:default}
+footer{font-size:14px;color:var(--muted)}
+a{color:var(--brand)}
+</style>
+</head>
+<body>
+<main>
+  <h1>LoggerAI Incident Assistant</h1>
+  <p class="lead">A sample production incident. Read the AI brief, then ask about it. This is made-up data, so try anything.</p>
+  <section class="card">
+    <h2>Incident</h2>
+    <p><strong>Checkout latency</strong> on POST /api/checkout</p>
+    <div class="facts">
+      <div><b>5.0 s</b><span>p95, alert at 1.5 s</span></div>
+      <div><b>35 min</b><span>Duration</span></div>
+      <div><b>61</b><span>Users affected</span></div>
+      <div><b>v2.14.0</b><span>Release before alert</span></div>
+    </div>
+  </section>
+  <section class="card">
+    <h2>AI brief</h2>
+    <p id="brief" class="status" aria-live="polite">Writing the brief...</p>
+    <div id="questions"></div>
+  </section>
+  <section class="card">
+    <h2>Ask about this incident</h2>
+    <div id="turns" aria-live="polite"></div>
+    <form id="form">
+      <input id="input" maxlength="1000" autocomplete="off" placeholder="What should I check first?" aria-label="Your question">
+      <button id="send">Ask</button>
+    </form>
+  </section>
+  <footer>Runs on Llama 3.3 on Workers AI, with Cloudflare Workflows writing the brief and a Durable Object remembering the conversation. Part of <a href="https://loggerai.uk">LoggerAI</a>.</footer>
+</main>
+<script>
+const $ = (id) => document.getElementById(id)
+let id
+try { id = sessionStorage.getItem("demo") } catch {}
+if (!id) { id = crypto.randomUUID(); try { sessionStorage.setItem("demo", id) } catch {} }
+
+async function call(path, options) {
+  const res = await fetch(path, options)
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || "Something went wrong. Try again.")
+  return data
+}
+const post = (path, body) => call(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, ...body }) })
+
+function turn(role, text) {
+  const el = document.createElement("div")
+  el.className = "turn " + role
+  el.textContent = text
+  $("turns").append(el)
+  return el
+}
+
+function show(view) {
+  if (view.brief) { $("brief").textContent = view.brief; $("brief").className = "brief" }
+  if (view.status === "failed") { $("brief").textContent = "The brief couldn't be written. Reload to try again."; $("brief").className = "status" }
+  if (view.questions.length && !$("questions").children.length) {
+    for (const q of view.questions) {
+      const b = document.createElement("button")
+      b.type = "button"; b.textContent = q
+      b.onclick = () => ask(q)
+      $("questions").append(b)
+    }
+  }
+}
+
+async function watch(tries = 40) {
+  const view = await call("/api/demo/session?id=" + id)
+  show(view)
+  if (view.status === "pending" && tries > 0) setTimeout(() => watch(tries - 1).catch(fail), 2500)
+}
+
+function fail(e) { $("brief").textContent = e.message; $("brief").className = "status" }
+
+async function ask(text) {
+  if ($("send").disabled) return
+  $("send").disabled = true
+  turn("user", text)
+  const wait = turn("assistant", "Thinking...")
+  try { wait.textContent = (await post("/api/demo/chat", { message: text })).reply }
+  catch (e) { wait.textContent = e.message }
+  $("send").disabled = false
+}
+
+$("form").onsubmit = (e) => {
+  e.preventDefault()
+  const text = $("input").value.trim()
+  if (!text) return
+  $("input").value = ""
+  ask(text)
+}
+
+post("/api/demo/session", {}).then((view) => {
+  view.messages.forEach((m) => turn(m.role, m.content))
+  show(view)
+  if (view.status === "pending") return watch()
+}).catch(fail)
+</script>
+</body>
+</html>
