@@ -43,3 +43,8 @@ test("questions run together on one line are split", () => {
 test("questions without question marks are kept, and intro lines dropped", () => {
   assert.deepEqual(parseQuestions("Here are three:\nWhat was the duration \nWhich release shipped"), ["What was the duration?", "Which release shipped?"])
 })
+
+test("the model sees what served an incident, and which containers restarted", () => {
+  const out = buildEvidence({ name: "Slow", served_by: [{ server: "web-1", container: "api" }], containers: [{ name: "api", restarts: 3 }] })
+  assert.ok(out.includes('"served_by"') && out.includes('"restarts":3'))
+})

@@ -38,6 +38,8 @@ export function buildEvidence(i: Raw): string {
     releases: list(i.releases, 5),
     checks: list(i.checks, 5),
     servers: list(i.servers, 5),
+    served_by: list(i.served_by, 5),
+    containers: list(i.containers, 5),
     logs: list(i.logs, logs),
     related: list(i.related, 5),
   })
