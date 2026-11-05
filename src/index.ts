@@ -54,6 +54,13 @@ async function loggerai(env: Env, req: Request, path: string) {
   return (await res.json()) as Record<string, any>
 }
 
+async function useBrief(env: Env, req: Request, project: string) {
+  const res = await fetch(`${env.LOGGERAI_API}/projects/${project}/obs/ai-use`, { method: "POST", headers: { authorization: req.headers.get("authorization") ?? "", accept: "application/json" } })
+  if (res.status === 402) throw new Refused(402, ((await res.json().catch(() => ({}))) as { detail?: string }).detail ?? "Your plan's AI write-ups are used up.")
+  if (res.status === 401) throw new Refused(401, "Sign in to LoggerAI")
+  // Anything else, such as an API that doesn't know this route yet, doesn't stop the brief.
+}
+
 async function sha(text: string) {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("")
@@ -106,6 +113,8 @@ async function live(env: Env, req: Request, url: URL, body: Record<string, unkno
   }
   await limit(env, `user:${me.id}`)
   const data = await loggerai(env, req, `/projects/${project}/obs/incidents/${incident}`)
+  // Only a new brief counts against the plan: reopening one, or chatting about it, doesn't.
+  if (url.pathname === "/api/session" && (await stubFor(env, name).stub.view()).status === "none") await useBrief(env, req, project)
   const evidence = buildEvidence(data)
   if (url.pathname === "/api/session") return json(await open(env, name, evidence, String(data.name ?? "Incident")))
   const text = message(body)
